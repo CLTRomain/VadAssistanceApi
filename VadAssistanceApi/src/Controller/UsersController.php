@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 namespace App\Controller;
+use Firebase\JWT\JWT;
+use Cake\Core\Configure;
 
 /**
  * Users Controller
@@ -10,15 +12,12 @@ namespace App\Controller;
  */
 class UsersController extends AppController
 {
-        public $Subscribers;
+    public $Subscribers;
 
 public function initialize(): void
 {
     parent::initialize();
     $this->loadComponent('Flash');
-    $this->loadComponent('Authentication.Authentication');
-    $this->Authentication->allowUnauthenticated(['login']);
-
    
     $this->Subscribers = $this->fetchTable('Subscribers');
 
@@ -179,13 +178,30 @@ public function initialize(): void
 
                 // 4. CONNEXION RÉUSSIE
                 $this->Authentication->setIdentity($user);
+
+                // --- AJOUT DE LA GÉNÉRATION JWT ---
+                // On récupère le JApiToken que tu as mis dans ton app_local.php
+                $payload = [
+                    'sub' => $user->id,           // ID de l'utilisateur
+                    'email' => $user->email,      // Email (optionnel mais pratique)
+                    'iat' => time(),              // Date de création
+                    'exp' => time() + (60 * 60 * 24 * 14), // Expire dans 14 jours
+                ];
+
+                // On utilise Security.salt ou ta clé spécifique dans app_local
+                $jwtKey = Configure::read('App.JWTApiToken'); 
+
+                // Ou si tu l'as nommé différemment : Configure::read('Auth.JwtToken.secret')
+
+                $token = JWT::encode($payload, $jwtKey, 'HS256');   
+                
                 
                 return $this->response
                     ->withType('application/json')
                     ->withStringBody(json_encode([
                         'success' => true,
                         'message' => 'Heureux de vous revoir !',
-                        'data' => ['user' => $user]
+                        'token' => $token, // ON RENVOIE LE TOKEN ICI
                     ]));
             }
 
@@ -196,6 +212,46 @@ public function initialize(): void
                     'success' => false, 
                     'message' => 'Email ou mot de passe incorrect.'
                 ]));
+        }
+    }
+
+    public function getprofile()
+    {
+        // 1. On récupère le token pur depuis le header "Authorization"
+        $authHeader = $this->request->getHeaderLine('Authorization');
+        $token = str_replace('Bearer ', '', $authHeader);
+
+        try {
+            // 2. On utilise la clé publique pour décoder le JWT
+            // (Assure-toi d'avoir importé : use Firebase\JWT\JWT; use Firebase\JWT\Key;)
+            $jwtKey = Configure::read('App.JWTApiToken'); 
+            $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+
+            // 3. ICI TU RÉCUPÈRES LE SUB
+            $userId = $decoded->sub; 
+
+
+            dd($userId);
+            
+            // Optionnel : tu peux aussi récupérer le subscription_id si tu l'as mis dedans
+            $subscriptionId = $decoded->subscription_id ?? null;
+
+            // 4. Tu cherches l'utilisateur en base de données
+            $user = $this->Users->get($userId);
+
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => true,
+                    'user' => $user,
+                    'sub_found' => $userId // Pour confirmer que ça marche
+                ]));
+
+        } catch (\Exception $e) {
+            // Si le token est invalide ou expiré
+            return $this->response
+                ->withStatus(401)
+                ->withStringBody(json_encode(['success' => false, 'message' => 'Token invalide']));
         }
     }
 }

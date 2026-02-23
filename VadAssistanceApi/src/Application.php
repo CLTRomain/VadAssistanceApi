@@ -29,11 +29,8 @@ use Cake\Http\MiddlewareQueue;
 use Cake\ORM\Locator\TableLocator;
 use Cake\Routing\Middleware\AssetMiddleware;
 use Cake\Routing\Middleware\RoutingMiddleware;
-use Authentication\AuthenticationService;
-use Authentication\AuthenticationServiceInterface;
-use Authentication\AuthenticationServiceProviderInterface;
-use Authentication\Middleware\AuthenticationMiddleware;
-use Psr\Http\Message\ServerRequestInterface;
+use App\Middleware\TokenCheck; // Assure-toi que le nom du fichier correspond
+
 /**
  * Application setup class.
  *
@@ -42,7 +39,7 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * @extends \Cake\Http\BaseApplication<\App\Application>
  */
-class Application extends BaseApplication implements AuthenticationServiceProviderInterface
+class Application extends BaseApplication
 {
     /**
      * Load all the application configuration and bootstrap logic.
@@ -91,7 +88,8 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // available as array through $request->getData()
             // https://book.cakephp.org/5/en/controllers/middleware.html#body-parser-middleware
             ->add(new BodyParserMiddleware())
-            ->add(new AuthenticationMiddleware($this)); // <--- IL MANQUAIT CETTE LIGNE
+
+            ->add(new TokenCheck());
 
             // Cross Site Request Forgery (CSRF) Protection Middleware
             // https://book.cakephp.org/5/en/security/csrf.html#cross-site-request-forgery-csrf-middleware
@@ -129,37 +127,6 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
         return $eventManager;
     }
 
-    public function getAuthenticationService(\Psr\Http\Message\ServerRequestInterface $request): \Authentication\AuthenticationServiceInterface
-{
-    $service = new \Authentication\AuthenticationService();
-
-    // Configuration par défaut
-    $service->setConfig([
-        'unauthenticatedRedirect' => null, // Important pour une API
-        'queryParam' => 'redirect',
-    ]);
-
-    // 1. On définit comment on vérifie l'utilisateur (Identificateur)
-    $service->loadIdentifier('Authentication.Password', [
-        'fields' => [
-            'username' => 'email', // On utilise l'email comme identifiant
-            'password' => 'password',
-        ],
-    ]);
-
-    // 2. On définit comment on reçoit les données (Authentificateur)
-    // On charge Session (pour le web) et Form (pour les requêtes POST d'API)
-    $service->loadAuthenticator('Authentication.Session');
-    $service->loadAuthenticator('Authentication.Form', [
-        'fields' => [
-            'username' => 'email',
-            'password' => 'password',
-        ],
-        'loginUrl' => '/login', // L'URL de ton action de login
-    ]);
-
-    return $service;
-}
 
     
 }

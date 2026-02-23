@@ -56,6 +56,7 @@ return function (RouteBuilder $routes): void {
         $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
         // Subscribers 
         $builder->connect('/login', ['controller' => 'Users', 'action' => 'login', '_ext' => 'json']);
+        $builder->connect('/getprofile', ['controller' => 'Users', 'action' => 'getprofile', '_ext' => 'json']);
         
         $builder->connect('/pages/*', 'Pages::display');
 

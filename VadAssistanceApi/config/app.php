@@ -58,6 +58,7 @@ return [
         'dir' => 'src',
         'webroot' => 'webroot',
         'wwwRoot' => WWW_ROOT,
+        'JWTApiToken' => 'XMGAriLvIHnjy43hdaceKy+cjOH3Bhn7JDmv1/xqW78=',
         //'baseUrl' => env('SCRIPT_NAME'),
         'fullBaseUrl' => env('APP_FULL_BASE_URL', false),
         'imageBaseUrl' => 'img/',
