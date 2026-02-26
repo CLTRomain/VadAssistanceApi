@@ -13,6 +13,10 @@ use Cake\Core\Configure;
 class UsersController extends AppController
 {
     public $Subscribers;
+    public $ContractsSubscribers;
+    public $Contract;
+
+    public $ContractsSubscribersFiles;
 
 public function initialize(): void
 {
@@ -20,7 +24,10 @@ public function initialize(): void
     $this->loadComponent('Flash');
    
     $this->Subscribers = $this->fetchTable('Subscribers');
-
+    $this->ContractsSubscribers = $this->fetchTable('ContractsSubscribers');
+    $this->Contract = $this->fetchTable('Contracts');
+    $this->ContractsSubscribersFiles = $this->fetchTable('ContractSubscriberFiles');
+    
 }
     /**
      * Index method
@@ -176,8 +183,7 @@ public function initialize(): void
                         ]));
                 }
 
-                // 4. CONNEXION RÉUSSIE
-                $this->Authentication->setIdentity($user);
+               
 
                 // --- AJOUT DE LA GÉNÉRATION JWT ---
                 // On récupère le JApiToken que tu as mis dans ton app_local.php
@@ -230,21 +236,39 @@ public function initialize(): void
             // 3. ICI TU RÉCUPÈRES LE SUB
             $userId = $decoded->sub; 
 
-
-            dd($userId);
-            
-            // Optionnel : tu peux aussi récupérer le subscription_id si tu l'as mis dedans
-            $subscriptionId = $decoded->subscription_id ?? null;
-
             // 4. Tu cherches l'utilisateur en base de données
-            $user = $this->Users->get($userId);
+            $user = $this->Subscribers->get($userId);
+
+            $SubsciberContract = $this->ContractsSubscribers->find()
+                ->where(['subscriber_id' => $userId])
+                ->contain(['Contracts'])
+                ->first();
+
+
+            $Contract = $this->Contract->find()
+                ->where(['id' => $SubsciberContract->contract_id])
+                ->first();
+
+            $contractSubscriberFile = $this->ContractsSubscribersFiles->find()
+                ->where(['contract_subscriber_id' => $SubsciberContract->id])
+                ->all();
+            
+            $infoUser = [
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'date_of_birth' => $user->birth_date,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'contract_name' => $Contract->name,
+                'contract_subscriber_files' => $contractSubscriberFile->toArray()
+            ];
 
             return $this->response
                 ->withType('application/json')
                 ->withStringBody(json_encode([
                     'success' => true,
-                    'user' => $user,
-                    'sub_found' => $userId // Pour confirmer que ça marche
+                    'user_info' => $infoUser 
                 ]));
 
         } catch (\Exception $e) {

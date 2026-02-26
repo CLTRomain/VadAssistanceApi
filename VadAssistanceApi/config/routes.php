@@ -51,16 +51,18 @@ return function (RouteBuilder $routes): void {
 
     $routes->scope('/', function (RouteBuilder $builder): void {
         $builder->setExtensions(['json']);
-
-
+        
         $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
-        // Subscribers 
-        $builder->connect('/login', ['controller' => 'Users', 'action' => 'login', '_ext' => 'json']);
-        $builder->connect('/getprofile', ['controller' => 'Users', 'action' => 'getprofile', '_ext' => 'json']);
-        
-        $builder->connect('/pages/*', 'Pages::display');
 
-        
+        // Routes POST
+        $builder->connect('/login', ['controller' => 'Subscribers', 'action' => 'login', '_ext' => 'json']);
+        $builder->connect('/updateprofile', ['controller' => 'Subscribers', 'action' => 'updateprofile', '_ext' => 'json']);
+
+        //Routes GET 
+        $builder->connect('/download/{filepath}', ['controller' => 'ContractSubscriberFiles', 'action' => 'download'], ['pass' => ['filepath']]);        
+        $builder->connect('/getprofile', ['controller' => 'Subscribers', 'action' => 'getprofile', '_ext' => 'json']);
+
+        $builder->connect('/pages/*', 'Pages::display');
         $builder->fallbacks();
     });
 

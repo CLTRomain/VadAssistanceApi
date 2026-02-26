@@ -20,7 +20,7 @@ if (!defined('DS')) {
 }
 
 /*
- * These definitions should only be edited if you have cake installed in
+ * These defines should only be edited if you have cake installed in
  * a directory layout other than the way it is distributed.
  * When using custom settings be sure to use the DS and do not add a trailing DS.
  */
@@ -92,3 +92,23 @@ define('CAKE_CORE_INCLUDE_PATH', ROOT . DS . 'vendor' . DS . 'cakephp' . DS . 'c
  */
 define('CORE_PATH', CAKE_CORE_INCLUDE_PATH . DS);
 define('CAKE', CORE_PATH . 'src' . DS);
+
+define('STORAGE_PATH', '/Users/romainclatot/Sites/localhost/storage-1' . DS);
+
+
+if (file_exists(CONFIG . 'app_local.php')) {
+    define('STORAGE_PATH', dirname(__DIR__, 3) . DS . 'storage-1' . DS);
+}else{
+    define('STORAGE_PATH', dirname(__DIR__, 3) . DS . 'domains' . DS . 'medias' . DS . 'public_html' . DS . 'storage' . DS);
+}
+
+
+define ('TITLE', 'VAD Assistance');
+define('TMP_PATH', STORAGE_PATH . 'tmp' . DS);
+define('CONTRACTS_PATH', STORAGE_PATH . 'contracts' . DS);
+define('HELP_PATH', STORAGE_PATH . 'help' . DS);
+define('SUBSCRIBERS_PATH', STORAGE_PATH . 'subscribers' . DS);
+define('USERS_PATH', STORAGE_PATH . 'users' . DS);
+define('IMAGES_PATH', STORAGE_PATH . 'images' . DS);
+define('GDPR_PATH', STORAGE_PATH . 'gdpr' . DS);
+define('SUPPORT_PATH', STORAGE_PATH . 'supports' . DS);
