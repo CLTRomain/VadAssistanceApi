@@ -17,10 +17,11 @@ class TokenCheck implements MiddlewareInterface {
         $authHeader = $request->getHeaderLine('Authorization');
         $token = str_replace('Bearer ', '', $authHeader);
 
+        
         // CAS 1 : Token totalement absent
         if (empty($token)) {
-            return $handler->handle($request); // On laisse passer, le Controller dira "401"
-        }
+            return $this->errorResponse('Authentification requise', 401);
+            }
 
         try {
             $JWTKEY = Configure::read('App.JWTApiToken'); // Récupère la clé secrète depuis la config

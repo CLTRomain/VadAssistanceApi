@@ -190,4 +190,65 @@ class SubscribersController extends AppController
                 ->withStringBody(json_encode(['success' => false, 'message' => 'Token invalide']));
         }
     }
+
+    public function editinfo() {
+
+        // recuperation du subscriberID dans le token depuis le header
+        $authHeader = $this->request->getHeaderLine('Authorization');
+        $token = str_replace('Bearer ', '', $authHeader);
+        $jwtKey = Configure::read('App.JWTApiToken'); 
+        $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+
+        $subscriberId = $decoded->sub; 
+
+
+        $subscriber = $this->Subscribers->get($subscriberId);
+
+
+        $newData = $this->request->getData();
+        $subscriber = $this->Subscribers->patchEntity($subscriber, $newData, [
+            'fields' => ['email', 'phone', 'address']
+        ]);
+
+        // 4. Vérification : Est-ce que quelque chose a réellement changé ?
+        if ($subscriber->isDirty()) {
+        
+            if ($subscriber->isDirty('email')) {                
+                // 2. On EFFACE la date d'activation
+                $subscriber->activated_account = null; 
+            } else if ($subscriber->isDirty('address')) {
+                $subscriber->address_rest = ""; 
+                $subscriber->postal_code = ""; 
+                $subscriber->city = "";
+                $subscriber->address_rest = "";
+
+            }
+
+              if ($this->Subscribers->save($subscriber)) {
+                $status = 'success';
+                $message = 'Informations mises à jour avec succès.';
+            } else {
+                $status = 'error';
+                $message = 'Erreur lors de la sauvegarde.';
+            }
+
+              return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode([
+                'success' => $status ,
+                'message' => $message
+            ]));
+
+        } else {
+           return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode([
+                'success' => false,
+                'message' => 'Aucune modification effectuée.'
+            ]));
+        }
+
+
+
+    }
 }

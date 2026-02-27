@@ -24,19 +24,12 @@ class ContractSubscriberFilesController extends AppController
     }
    public function download($filePath)
     {   
-        // $contractSubscriberFile = $this->contractSubscriberFiles->find()
-        //     ->where(['file_path' => $filePath])
-        //     ->first();
-
         $relativePath = base64_decode($filePath); // récupère le vrai chemin
 
 
         $filepath = STORAGE_PATH . urldecode($relativePath);
-
-
-
+        
         // Décode l'URL pour récupérer le vrai chemin
-
         if (!file_exists($filepath) || !is_file($filepath)) {
             // Ajout du \ devant pour CakePHP 5
             throw new \Cake\Http\Exception\NotFoundException('Fichier introuvable');

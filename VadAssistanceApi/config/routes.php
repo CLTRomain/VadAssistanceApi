@@ -57,6 +57,8 @@ return function (RouteBuilder $routes): void {
         // Routes POST
         $builder->connect('/login', ['controller' => 'Subscribers', 'action' => 'login', '_ext' => 'json']);
         $builder->connect('/updateprofile', ['controller' => 'Subscribers', 'action' => 'updateprofile', '_ext' => 'json']);
+        $builder->connect('/editinfo', ['controller' => 'Subscribers', 'action' => 'editinfo'], );        
+
 
         //Routes GET 
         $builder->connect('/download/{filepath}', ['controller' => 'ContractSubscriberFiles', 'action' => 'download'], ['pass' => ['filepath']]);        
