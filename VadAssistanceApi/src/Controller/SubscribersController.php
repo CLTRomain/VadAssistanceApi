@@ -126,70 +126,85 @@ class SubscribersController extends AppController
         }
     }
 
-    public function getprofile()
-    {
-        // 1. On récupère le token pur depuis le header "Authorization"
+public function getprofile()
+{
+
+    // On s'assure que la réponse est toujours traitée comme du JSON
+    $this->response = $this->response->withType('application/json');
+
+    try {
+
+
         $authHeader = $this->request->getHeaderLine('Authorization');
         $token = str_replace('Bearer ', '', $authHeader);
 
-        try {
-            // 2. On utilise la clé publique pour décoder le JWT
-            // (Assure-toi d'avoir importé : use Firebase\JWT\JWT; use Firebase\JWT\Key;)
-            $jwtKey = Configure::read('App.JWTApiToken'); 
-            $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+        if (empty($token)) {
+            throw new \Exception("Token manquant", 401);
+        }
 
-            // 3. ICI TU RÉCUPÈRES LE SUB
-            $userId = $decoded->sub; 
+        $jwtKey = Configure::read('App.JWTApiToken'); 
+        $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+        $userId = $decoded->sub; 
 
-            // 4. Tu cherches l'utilisateur en base de données
-            $subscriber = $this->Subscribers->get($userId);
+        // 1. Récupération de l'abonné
+        $subscriber = $this->Subscribers->get($userId);
 
-            $SubscriberContract = $this->ContractsSubscribers->find()
-                ->where(['subscriber_id' => $userId])
-                ->contain(['Contracts'])
-                ->first();
+        // 2. Récupération du lien contrat (utilisez l'option first() prudemment)
+        $subscriberContract = $this->ContractsSubscribers->find()
+            ->where(['subscriber_id' => $userId])
+            ->contain(['Contracts'])
+            ->first();
 
+        // Initialisation des données par défaut si pas de contrat
+        $contractName = "Aucun contrat";
+        $filesArray = [];
 
-            $Contract = $this->Contract->find()
-                ->where(['id' => $SubscriberContract->contract_id])
-                ->first();
+        if ($subscriberContract) {
+            // On récupère le nom via la relation déjà chargée par contain()
+            $contractName = $subscriberContract->contract ? $subscriberContract->contract->name : "Contrat inconnu";
 
-            $contractSubscriberFile = $this->ContractsSubscribersFiles->find()
-                ->where(['contract_subscriber_id' => $SubscriberContract->id])
+            // 3. Récupération des fichiers
+            $files = $this->ContractsSubscribersFiles->find()
+                ->where(['contract_subscriber_id' => $subscriberContract->id])
                 ->all();
 
-             // 2. On boucle sur chaque entité "File" pour lui ajouter le champ
-            foreach ($contractSubscriberFile as $file) {
-
-                $file->download_path = base64_encode('subscribers/'. $subscriber->id . '/' .$SubscriberContract->id. '/' . $file->name . '.pdf');
+            foreach ($files as $file) {
+                $file->download_path = base64_encode('subscribers/'. $subscriber->id . '/' .$subscriberContract->id. '/' . $file->name . '.pdf');
             }
-
-            
-            $infoUser = [
-                'first_name' => $subscriber->first_name,
-                'last_name' => $subscriber->last_name,
-                'date_of_birth' => $subscriber->birth_date,
-                'email' => $subscriber->email,
-                'phone' => $subscriber->phone,
-                'address' => $subscriber->address,
-                'contract_name' => $Contract->name,
-                'contract_subscriber_files' => $contractSubscriberFile->toArray()
-            ];
-
-            return $this->response
-                ->withType('application/json')
-                ->withStringBody(json_encode([
-                    'success' => true,
-                    'user_info' => $infoUser 
-                ]));
-
-        } catch (\Exception $e) {
-            // Si le token est invalide ou expiré
-            return $this->response
-                ->withStatus(401)
-                ->withStringBody(json_encode(['success' => false, 'message' => 'Token invalide']));
+            $filesArray = $files->toArray();
         }
+
+        $infoUser = [
+            'first_name' => $subscriber->first_name,
+            'last_name' => $subscriber->last_name,
+            'date_of_birth' => $subscriber->birth_date ? $subscriber->birth_date->format('Y-m-d') : null,
+            'email' => $subscriber->email,
+            'phone' => $subscriber->phone,
+            'address' => $subscriber->address,
+            'contract_name' => $contractName,
+            'contract_subscriber_files' => $filesArray
+        ];
+
+        return $this->response->withStringBody(json_encode([
+            'success' => true,
+            'user_info' => $infoUser 
+        ]));
+
+    } catch (\Exception $e) {
+        // Loggez l'erreur réelle dans logs/error.log pour vous aider à débugger sans casser le mobile
+        $this->log($e->getMessage(), 'error');
+
+        $status = ($e->getCode() === 401) ? 401 : 500;
+        
+        return $this->response
+            ->withStatus($status)
+            ->withStringBody(json_encode([
+                'success' => false, 
+                'message' => 'Erreur lors de la récupération du profil',
+                'debug' => (Configure::read('debug')) ? $e->getMessage() : null // Utile en dev
+            ]));
     }
+}
 
     public function editinfo() {
 

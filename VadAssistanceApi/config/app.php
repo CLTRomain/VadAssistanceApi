@@ -69,6 +69,80 @@ return [
             'templates' => [ROOT . DS . 'templates' . DS],
             'locales' => [RESOURCES . 'locales' . DS],
         ],
+
+        'contracts' => [
+        'v1' => [
+            1 => [
+                'electromenager' => 200,
+                'cumul' => 5
+            ],
+            2 => [
+                'electricite' => 300,
+                'cumul' => 5
+            ],
+            3 => [
+                'plomberie' => 300,
+                'cumul' => 5
+            ],
+            4 => [
+                'gaz' => 300,
+                'cumul' => 5
+            ],
+            5 => [
+                'electricite' => 300,
+                'plomberie' => 300,
+                'gaz' => 300,
+                'cumul' => 5
+            ],
+            6 => [
+                'electricite' => 300,
+                'plomberie' => 300,
+                'cumul' => 5
+            ],
+            7 => [
+                'electricite' => 300,
+                'plomberie' => 300,
+                'electromenager' => 200,
+                'cumul' => 5
+            ],
+            8 => [
+                'electricite' => 300,
+                'plomberie' => 300,
+                'gaz' => 300,
+                'electromenager' => 200,
+                'cumul' => 5
+            ],
+            13 => [
+                'connectes' => 600,
+                'cumul' => 1
+            ],
+            14 => [
+                'juridique' => 200,
+                'permis' => 200,
+                'cumul' => 1
+            ],
+            15 => [
+                'juridique' => 200,
+                'permis' => 200,
+                'cumul' => 1
+            ],
+            16 => [
+                'telephonie' => 200,
+                'cumul' => 1
+            ],
+            17 => [
+                'telephonie' => 200,
+                'cumul' => 1
+            ],
+            21 => [
+                'electricite' => 300,
+                'plomberie' => 300,
+                'gaz' => 300,
+                'electromenager' => 200,
+                'cumul' => 5
+            ]
+        ]
+    ],
     ],
 
     /*

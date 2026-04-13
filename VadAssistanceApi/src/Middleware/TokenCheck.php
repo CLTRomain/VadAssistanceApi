@@ -14,6 +14,15 @@ use Cake\Core\Configure;
 
 class TokenCheck implements MiddlewareInterface {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+
+        $path = $request->getUri()->getPath();
+
+        // 🟢 On laisse passer les routes publiques (Login, etc.)
+    $publicPaths = ['/login', '/forgetPassword', '/newPassword']; 
+    if (in_array($path, $publicPaths)) {
+        return $handler->handle($request);
+    }
+
         $authHeader = $request->getHeaderLine('Authorization');
         $token = str_replace('Bearer ', '', $authHeader);
 

@@ -51,23 +51,24 @@ return function (RouteBuilder $routes): void {
 
     $routes->scope('/', function (RouteBuilder $builder): void {
         $builder->setExtensions(['json']);
-        
         $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
 
         // Routes POST
         $builder->connect('/login', ['controller' => 'Subscribers', 'action' => 'login', '_ext' => 'json']);
         $builder->connect('/updateprofile', ['controller' => 'Subscribers', 'action' => 'updateprofile', '_ext' => 'json']);
-        $builder->connect('/editinfo', ['controller' => 'Subscribers', 'action' => 'editinfo'], );        
-
+        $builder->connect('/editinfo', ['controller' => 'Subscribers', 'action' => 'editinfo'], );  
 
         //Routes GET 
         $builder->connect('/download/{filepath}', ['controller' => 'ContractSubscriberFiles', 'action' => 'download'], ['pass' => ['filepath']]);        
         $builder->connect('/getprofile', ['controller' => 'Subscribers', 'action' => 'getprofile', '_ext' => 'json']);
+        $builder->connect('/getContractDetails/{id}', ['controller' => 'ContractsSubscribers', 'action' => 'getContractDetails', '_ext' => 'json'], ['pass' => ['id']]);
+        $builder->connect('/DemandsInterventions', ['controller' => 'Demands', 'action' => 'DemandsInterventions', '_ext' => 'json']);
 
         $builder->connect('/pages/*', 'Pages::display');
         $builder->fallbacks();
     });
 
+    
     /*
      * If you need a different set of middleware or none at all,
      * open new scope and define routes there.
