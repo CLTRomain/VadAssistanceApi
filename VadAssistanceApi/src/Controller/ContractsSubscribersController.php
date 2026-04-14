@@ -5,6 +5,8 @@ namespace App\Controller;
 use Firebase\JWT\JWT;
 use Cake\Core\Configure;
 
+use function Cake\Error\debug;
+
 /**
  * ContractsSubscribers Controller
  *
@@ -41,54 +43,43 @@ class ContractsSubscribersController extends AppController
 
 public function getContractDetails($id = null)
 {   
-        $id = '21'; // ID en dur parce qu'il y a qu'un seul contrat pour le moment, à remplacer par une variable dynamique plus tard
-        $authHeader = $this->request->getHeaderLine('Authorization');
-        $token = str_replace('Bearer ', '', $authHeader);
+    // 1. Authentification et config
+    $id = '21'; 
+    $authHeader = $this->request->getHeaderLine('Authorization');
+    $token = str_replace('Bearer ', '', $authHeader);
 
-        if (empty($token)) {
-            throw new \Exception("Token manquant", 401);
-        }
+    if (empty($token)) { throw new \Exception("Token manquant", 401); }
 
-        $jwtKey = Configure::read('App.JWTApiToken'); 
-        $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
-        $subscribers_id = $decoded->sub;
-
+    $jwtKey = Configure::read('App.JWTApiToken'); 
+    $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+    $subscribers_id = $decoded->sub;
 
     $this->response = $this->response->withType('application/json');
 
     try {
-    
         if (!$subscribers_id) {
             return $this->response->withStatus(401)
                 ->withStringBody(json_encode(['success' => false, 'message' => 'Utilisateur non authentifié']));
         }
 
+        // Récupération de la configuration des plafonds
         $contractData = Configure::read('App.contracts.v1.' . $id);
 
-        
-        // --- VOTRE LOGIQUE DE BASE ---
         $ContractsSubscribed = $this->ContractsSubscribers->find()
-            ->where([
-                'subscriber_id' => $subscribers_id,
-                'canceled_at IS' => null
-            ])
+            ->where(['subscriber_id' => $subscribers_id, 'canceled_at IS' => null])
             ->first();
 
         if (!$ContractsSubscribed) {
-            return $this->response->withStringBody(json_encode([
-                'success' => true, 
-                'finalResults' => [], 
-                'message' => 'Aucun contrat actif'
-            ]));
+            return $this->response->withStringBody(json_encode(['success' => true, 'finalResults' => [], 'message' => 'Aucun contrat actif']));
         }
 
-        $createdDate = $ContractsSubscribed['created'];
+        $createdDate = $ContractsSubscribed['signed_at'];
         $currentDate = new \Cake\I18n\FrozenTime();
         $yearsElapsed = $createdDate->diff($currentDate)->y + 1;
-
         $capAmount = 1500;
         $finalResults = [];
 
+        // Boucle sur chaque domaine défini dans la config (Plomberie, Gaz, etc.)
         foreach ($contractData as $domain => $annualCredit) {
             if ($domain === 'cumul') continue;
 
@@ -96,41 +87,52 @@ public function getContractDetails($id = null)
             $totalSinistres = 0;
             $sinistresDetails = [];
 
-            $SupportRequestContacts = $this->SupportRequestContacts->find()
-                ->where(['subscriber_id' => $subscribers_id])
-                ->toArray();
-
-            $SupportRequests = $this->SupportRequest->find()
-                ->where(['contract_subscriber_id' => $subscribers_id])
+            // On récupère toutes les requêtes du contrat
+            $SupportRequests = $this->fetchTable('SupportRequests')->find()
+                ->where(['contract_subscriber_id' => $ContractsSubscribed['id']])
                 ->toArray();
 
             foreach ($SupportRequests as $Request) {
-                $SupportRequestSkills = $this->SupportRequestsSkills->find()
+                $SupportRequestSkills = $this->fetchTable('SupportRequestsSkills')->find()
                     ->where(['support_request_id' => $Request->id])
                     ->toArray();
-                
+
                 foreach ($SupportRequestSkills as $skillData) {
-                    $Skill = $this->Skills->find()
+                    // On ignore les lignes sans montant de paiement
+                    if ($skillData->payment_amount === null) continue;
+
+                    $Skill = $this->fetchTable('Skills')->find()
                         ->where(['id' => $skillData->skill_id])
                         ->first();
 
-                    if (!$Skill || $Skill->slug !== $domain) continue;
 
-                    $paymentDate = new \Cake\I18n\FrozenTime($skillData->payment_date);
-                    $startDate = $ContractsSubscribed->last_reset_date ?? $createdDate;
 
-                    $paymentWithTax = 0;
-                    if ($paymentDate >= $startDate) {
-                        $paymentWithTax = round($skillData->payment_amount * (1 + $skillData->tax / 100), 2);
-                        $totalSinistres += $paymentWithTax;
+                    // 1. On vérifie si le skill existe
+                    if (!$Skill) continue;
+
+                    // 2. On compare les slugs proprement (minuscules et sans espaces)
+                    $slugBase = trim(strtolower($Skill->slug));
+                    $slugConfig = trim(strtolower($domain));
+
+                    if ($slugBase !== $slugConfig) {
+                        continue;
                     }
+
+                    // 3. Cumul du sinistre
+                    $tax = $skillData->tax ?? 0;
+                    $paymentWithTax = round($skillData->payment_amount * (1 + $tax / 100), 2);
+
+                    $totalSinistres += $paymentWithTax;
+
+                    $paymentDate = $skillData->payment_date
+                        ? new \Cake\I18n\DateTime($skillData->payment_date)
+                        : null;
 
                     $sinistresDetails[] = [
                         'skill_name' => $Skill->name,
                         'payment_dest' => $skillData->payment_dest,
-                        'payment_amount' => (floor($paymentWithTax) == $paymentWithTax) ? $paymentWithTax : number_format($paymentWithTax, 2, '.', ''),
-                        'tax' => $skillData->tax,
-                        'payment_date' => $paymentDate->i18nFormat('dd/MM/yyyy')
+                        'payment_amount' => $paymentWithTax,
+                        'payment_date' => $paymentDate ? $paymentDate->i18nFormat('dd/MM/yyyy') : null
                     ];
                 }
             }
@@ -145,7 +147,12 @@ public function getContractDetails($id = null)
             ];
         }
 
-        // --- SORTIE API ---
+        // Récupération des contacts pour le fil d'actualité mobile
+        $SupportRequestContacts = $this->fetchTable('SupportRequestContacts')->find()
+            ->where(['subscriber_id' => $subscribers_id])
+            ->order(['created_at' => 'DESC'])
+            ->toArray();
+
         return $this->response->withStringBody(json_encode([
             'success' => true,
             'data' => [
@@ -159,7 +166,7 @@ public function getContractDetails($id = null)
             ->withStringBody(json_encode([
                 'success' => false, 
                 'message' => 'Erreur serveur',
-                'error' => Configure::read('debug') ? $e->getMessage() : null
+                'error' => $e->getMessage()
             ]));
     }
 }
