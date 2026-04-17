@@ -56,13 +56,17 @@ return function (RouteBuilder $routes): void {
         // Routes POST
         $builder->connect('/login', ['controller' => 'Subscribers', 'action' => 'login', '_ext' => 'json']);
         $builder->connect('/updateprofile', ['controller' => 'Subscribers', 'action' => 'updateprofile', '_ext' => 'json']);
-        $builder->connect('/editinfo', ['controller' => 'Subscribers', 'action' => 'editinfo'], );  
+        $builder->connect('/editinfo', ['controller' => 'Subscribers', 'action' => 'editinfo']);
+        $builder->connect('/save-push-token', ['controller' => 'Subscribers', 'action' => 'savePushToken']);
+        $builder->connect('/support-request-contacts/{id}/status', ['controller' => 'SupportRequestContacts', 'action' => 'updateStatus'], ['pass' => ['id'], '_method' => 'POST']);
+        $builder->connect('/demandsInterventions', ['controller' => 'SupportRequestContacts', 'action' => 'demandsInterventions']);
+        $builder->connect('/askToEndContract', ['controller' => 'Demands', 'action' => 'askToEndContract']);
+
 
         //Routes GET 
         $builder->connect('/download/{filepath}', ['controller' => 'ContractSubscriberFiles', 'action' => 'download'], ['pass' => ['filepath']]);        
         $builder->connect('/getprofile', ['controller' => 'Subscribers', 'action' => 'getprofile', '_ext' => 'json']);
         $builder->connect('/getContractDetails/{id}', ['controller' => 'ContractsSubscribers', 'action' => 'getContractDetails', '_ext' => 'json'], ['pass' => ['id']]);
-        $builder->connect('/DemandsInterventions', ['controller' => 'Demands', 'action' => 'DemandsInterventions', '_ext' => 'json']);
 
         $builder->connect('/pages/*', 'Pages::display');
         $builder->fallbacks();

@@ -44,16 +44,14 @@ class ContractsSubscribersController extends AppController
 public function getContractDetails($id = null)
 {   
     // 1. Authentification et config
-    $id = '21'; 
     $authHeader = $this->request->getHeaderLine('Authorization');
     $token = str_replace('Bearer ', '', $authHeader);
 
     if (empty($token)) { throw new \Exception("Token manquant", 401); }
 
-    $jwtKey = Configure::read('App.JWTApiToken'); 
+    $jwtKey = Configure::read('App.JWTApiToken');
     $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
     $subscribers_id = $decoded->sub;
-
     $this->response = $this->response->withType('application/json');
 
     try {
@@ -62,11 +60,26 @@ public function getContractDetails($id = null)
                 ->withStringBody(json_encode(['success' => false, 'message' => 'Utilisateur non authentifié']));
         }
 
-        // Récupération de la configuration des plafonds
+        if (empty($id)) {
+            return $this->response->withStatus(400)
+                ->withStringBody(json_encode(['success' => false, 'message' => 'contract_id manquant']));
+        }
+
+        // Récupération de la configuration des plafonds pour ce contrat
         $contractData = Configure::read('App.contracts.v1.' . $id);
 
+        if (empty($contractData)) {
+            return $this->response->withStatus(404)
+                ->withStringBody(json_encode(['success' => false, 'message' => 'Configuration introuvable pour ce contrat']));
+        }
+
+        // On récupère le bon contrat : celui du subscriber ET du contract_id demandé
         $ContractsSubscribed = $this->ContractsSubscribers->find()
-            ->where(['subscriber_id' => $subscribers_id, 'canceled_at IS' => null])
+            ->where([
+                'subscriber_id' => $subscribers_id,
+                'contract_id'   => $id,
+                'canceled_at IS' => null
+            ])
             ->first();
 
         if (!$ContractsSubscribed) {
@@ -104,8 +117,6 @@ public function getContractDetails($id = null)
                     $Skill = $this->fetchTable('Skills')->find()
                         ->where(['id' => $skillData->skill_id])
                         ->first();
-
-
 
                     // 1. On vérifie si le skill existe
                     if (!$Skill) continue;

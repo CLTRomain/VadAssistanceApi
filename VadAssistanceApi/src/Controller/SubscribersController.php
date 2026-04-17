@@ -149,40 +149,40 @@ public function getprofile()
         // 1. Récupération de l'abonné
         $subscriber = $this->Subscribers->get($userId);
 
-        // 2. Récupération du lien contrat (utilisez l'option first() prudemment)
-        $subscriberContract = $this->ContractsSubscribers->find()
-            ->where(['subscriber_id' => $userId])
+        // 2. Récupération de tous les contrats actifs du subscriber
+        $subscriberContracts = $this->ContractsSubscribers->find()
+            ->where(['subscriber_id' => $userId, 'canceled_at IS' => null])
             ->contain(['Contracts'])
-            ->first();
+            ->all();
 
-        // Initialisation des données par défaut si pas de contrat
-        $contractName = "Aucun contrat";
-        $filesArray = [];
-
-        if ($subscriberContract) {
-            // On récupère le nom via la relation déjà chargée par contain()
-            $contractName = $subscriberContract->contract ? $subscriberContract->contract->name : "Contrat inconnu";
-
-            // 3. Récupération des fichiers
+        // 3. Construction du tableau de contrats avec leurs fichiers
+        $contractsArray = [];
+        foreach ($subscriberContracts as $subscriberContract) {
             $files = $this->ContractsSubscribersFiles->find()
                 ->where(['contract_subscriber_id' => $subscriberContract->id])
                 ->all();
 
             foreach ($files as $file) {
-                $file->download_path = base64_encode('subscribers/'. $subscriber->id . '/' .$subscriberContract->id. '/' . $file->name . '.pdf');
+                $file->download_path = base64_encode('subscribers/' . $subscriber->id . '/' . $subscriberContract->id . '/' . $file->name . '.pdf');
             }
-            $filesArray = $files->toArray();
+
+            $contractsArray[] = [
+                'contract_id'             => $subscriberContract->contract_id,
+                'contract_subscriber_id'  => $subscriberContract->id,
+                'contract_name'           => $subscriberContract->contract ? $subscriberContract->contract->name : 'Contrat inconnu',
+                'signed_at'               => $subscriberContract->signed_at ? $subscriberContract->signed_at->format('d/m/Y') : null,
+                'files'                   => $files->toArray(),
+            ];
         }
 
         $infoUser = [
             'first_name' => $subscriber->first_name,
-            'last_name' => $subscriber->last_name,
+            'last_name'  => $subscriber->last_name,
             'date_of_birth' => $subscriber->birth_date ? $subscriber->birth_date->format('Y-m-d') : null,
-            'email' => $subscriber->email,
-            'phone' => $subscriber->phone,
-            'address' => $subscriber->address,
-            'contract_name' => $contractName,
-            'contract_subscriber_files' => $filesArray
+            'email'      => $subscriber->email,
+            'phone'      => $subscriber->phone,
+            'address'    => $subscriber->address,
+            'contracts'  => $contractsArray,
         ];
 
         return $this->response->withStringBody(json_encode([
@@ -205,6 +205,47 @@ public function getprofile()
             ]));
     }
 }
+
+    public function savePushToken()
+    {
+        $this->request->allowMethod(['post']);
+        $this->response = $this->response->withType('application/json');
+
+        try {
+            $authHeader = $this->request->getHeaderLine('Authorization');
+            $token = str_replace('Bearer ', '', $authHeader);
+            $jwtKey = Configure::read('App.JWTApiToken');
+            $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+            $subscriberId = $decoded->sub;
+
+            $pushToken = $this->request->getData('push_token');
+            if (empty($pushToken)) {
+                return $this->response->withStatus(400)
+                    ->withStringBody(json_encode(['success' => false, 'message' => 'push_token manquant']));
+            }
+
+            $SubscriberPushTokens = $this->fetchTable('SubscriberPushTokens');
+
+            // On enregistre le token uniquement s'il n'existe pas déjà
+            $existing = $SubscriberPushTokens->find()
+                ->where(['push_token' => $pushToken])
+                ->first();
+
+            if (!$existing) {
+                $entry = $SubscriberPushTokens->newEntity([
+                    'subscriber_id' => $subscriberId,
+                    'push_token'    => $pushToken,
+                ]);
+                $SubscriberPushTokens->save($entry);
+            }
+
+            return $this->response->withStringBody(json_encode(['success' => true]));
+
+        } catch (\Exception $e) {
+            return $this->response->withStatus(500)
+                ->withStringBody(json_encode(['success' => false, 'message' => $e->getMessage()]));
+        }
+    }
 
     public function editinfo() {
 

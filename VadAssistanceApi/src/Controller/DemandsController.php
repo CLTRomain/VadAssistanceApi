@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Firebase\JWT\JWT;
+use Cake\Core\Configure;
+
 /**
  * Demands Controller
  *
@@ -10,6 +13,95 @@ namespace App\Controller;
  */
 class DemandsController extends AppController
 {
+    /**
+     * Crée une demande de résiliation.
+     * POST /askToEndContract
+     * Authorization: Bearer {token}
+     */
+    public function askToEndContract()
+    {
+        $this->request->allowMethod(['post']);
+        $this->response = $this->response->withType('application/json');
+
+        try {
+            // Récupération du subscriber via JWT
+            $authHeader = $this->request->getHeaderLine('Authorization');
+            $token = str_replace('Bearer ', '', $authHeader);
+            $jwtKey = Configure::read('App.JWTApiToken');
+            $decoded = JWT::decode($token, new \Firebase\JWT\Key($jwtKey, 'HS256'));
+            $subscriberId = $decoded->sub;
+
+            // Récupération des infos du subscriber
+            $subscriber = $this->fetchTable('Subscribers')->get($subscriberId);
+
+            // Récupération du contrat actif pour la date de signature
+            $contract = $this->fetchTable('ContractsSubscribers')->find()
+                ->where(['subscriber_id' => $subscriberId, 'canceled_at IS' => null])
+                ->first();
+
+            // Vérification si une demande de résiliation existe déjà
+            $existing = $this->Demands->find()
+                ->where([
+                    'type'       => 'resiliation',
+                    'email'      => $subscriber->email,
+                ])
+                ->first();
+
+            if ($existing) {
+                return $this->response->withStatus(409)
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Vous avez déjà fait une demande de résiliation.'
+                    ]));
+            }
+
+            $clientInfo = json_encode([
+                'last_name'  => $subscriber->last_name,
+                'first_name' => $subscriber->first_name,
+                'phone'      => $subscriber->phone,
+                'email'      => $subscriber->email,
+                'birth_date' => $subscriber->birth_date ? $subscriber->birth_date->format('Y-m-d') : null,
+            ], JSON_UNESCAPED_UNICODE);
+
+            $contractId = $contract ? $contract->id : 'N/A';
+
+            $description = "DEMANDE DE RÉSILIATION\n"
+                . "----------------------\n"
+                . "Infos client : {$clientInfo}\n"
+                . "ID du contrat : {$contractId}";
+
+            $demand = $this->Demands->newEntity([
+                'type'        => 'resiliation',
+                'first_name'  => $subscriber->first_name,
+                'last_name'   => $subscriber->last_name,
+                'email'       => $subscriber->email,
+                'phone'       => $subscriber->phone,
+                'description' => $description,
+                'status'      => 0,
+                'rgpd_consent' => 1,
+            ]);
+
+            if (!$this->Demands->save($demand)) {
+                return $this->response->withStatus(500)
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Erreur lors de la sauvegarde',
+                        'errors'  => $demand->getErrors()
+                    ]));
+            }
+
+            return $this->response->withStringBody(json_encode([
+                'success' => true,
+                'message' => 'Demande de résiliation enregistrée',
+                'data'    => ['id' => $demand->id]
+            ]));
+
+        } catch (\Exception $e) {
+            return $this->response->withStatus(500)
+                ->withStringBody(json_encode(['success' => false, 'message' => $e->getMessage()]));
+        }
+    }
+
     /**
      * Index method
      *

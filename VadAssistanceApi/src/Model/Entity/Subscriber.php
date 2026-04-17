@@ -42,6 +42,7 @@ use Cake\ORM\Entity;
  * @property \Cake\I18n\DateTime|null $partner_offers_acceptance
  * @property \Cake\I18n\DateTime|null $created
  * @property \Cake\I18n\DateTime|null $modified
+ * @property string|null $push_token
  *
  * @property \App\Model\Entity\Contract[] $contracts
  */
@@ -92,6 +93,7 @@ class Subscriber extends Entity implements IdentityInterface // <--- AJOUTEZ L'I
         'created' => true,
         'modified' => true,
         'contracts' => true,
+        'push_token' => true,
     ];
 
     protected array $_hidden = [
