@@ -18,7 +18,7 @@ class TokenCheck implements MiddlewareInterface {
         $path = $request->getUri()->getPath();
 
         // 🟢 On laisse passer les routes publiques (Login, etc.)
-    $publicPaths = ['/login', '/forgetPassword', '/newPassword']; 
+    $publicPaths = ['/subscribers/login', '/subscribers/forgot-password', '/subscribers/reset-password'];
     if (in_array($path, $publicPaths)) {
         return $handler->handle($request);
     }

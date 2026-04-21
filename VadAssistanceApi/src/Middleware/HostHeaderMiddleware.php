@@ -45,7 +45,8 @@ class HostHeaderMiddleware implements MiddlewareInterface
         }
 
         $configuredHost = parse_url($fullBaseUrl, PHP_URL_HOST);
-        $requestHost = $request->getUri()->getHost();
+        // Strip port if present (e.g. "37.187.156.198:443" → "37.187.156.198")
+        $requestHost = explode(':', $request->getUri()->getHost())[0];
 
         if ($configuredHost && $requestHost && strtolower($configuredHost) !== strtolower($requestHost)) {
             throw new BadRequestException(
